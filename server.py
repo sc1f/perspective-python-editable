@@ -29,11 +29,22 @@ class MainHandler(tornado.web.RequestHandler):
 
 def make_app():
     TABLE = None
+    VIEW = None
+    UPDATE_TABLE = None
     here = os.path.abspath(os.path.dirname(__file__))
+
+    def write_update(row):
+        UPDATE_TABLE.update(row)
+
     with open(os.path.join(here, "superstore.arrow"), "rb") as arrow:
         TABLE = Table(arrow.read())
+        VIEW = TABLE.view()
+        UPDATE_TABLE = Table(TABLE.schema())
+        VIEW.on_update(write_update, mode="row")
+    
     MANAGER = PerspectiveManager()
     MANAGER.host_table("data_source", TABLE)
+    MANAGER.host_table("update_source", UPDATE_TABLE)
 
     return tornado.web.Application([
         (r"/", MainHandler),
