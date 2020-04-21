@@ -31,9 +31,9 @@ def make_app():
     TABLE = None
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, "superstore.arrow"), "rb") as arrow:
-        TABLE = Table(arrow)
+        TABLE = Table(arrow.read())
     MANAGER = PerspectiveManager(lock=True)
-    MANAGER.host_table("data_source", STATE_TABLE)
+    MANAGER.host_table("data_source", TABLE)
 
     return tornado.web.Application([
         (r"/", MainHandler),
