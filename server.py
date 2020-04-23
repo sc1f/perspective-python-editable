@@ -31,6 +31,7 @@ def make_app():
     TABLE = None
     VIEW = None
     UPDATE_TABLE = None
+    UPDATE_VIEW = None
     here = os.path.abspath(os.path.dirname(__file__))
 
     def write_update(row):
@@ -39,12 +40,14 @@ def make_app():
     with open(os.path.join(here, "superstore.arrow"), "rb") as arrow:
         TABLE = Table(arrow.read())
         VIEW = TABLE.view()
-        UPDATE_TABLE = Table(TABLE.schema())
         VIEW.on_update(write_update, mode="row")
+        UPDATE_TABLE = Table(TABLE.schema())
+        UPDATE_VIEW = UPDATE_TABLE.view()
     
     MANAGER = PerspectiveManager()
     MANAGER.host_table("data_source", TABLE)
-    MANAGER.host_table("update_source", UPDATE_TABLE)
+    MANAGER.host_view("data_view", VIEW)
+    MANAGER.host_view("update_view", UPDATE_VIEW)
 
     return tornado.web.Application([
         (r"/", MainHandler),
