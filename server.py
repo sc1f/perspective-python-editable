@@ -30,24 +30,28 @@ class MainHandler(tornado.web.RequestHandler):
 def make_app():
     TABLE = None
     VIEW = None
-    UPDATE_TABLE = None
-    UPDATE_VIEW = None
+    CHANGELOG_TABLE = None
+    CHANGELOG_VIEW = None
+
     here = os.path.abspath(os.path.dirname(__file__))
 
-    def write_update(row):
-        UPDATE_TABLE.update(row)
+    def write_changelog(port_id, row):
+        CHANGELOG_TABLE.update(row)
 
     with open(os.path.join(here, "superstore.arrow"), "rb") as arrow:
-        TABLE = Table(arrow.read())
+        TABLE = Table(arrow.read(), index="Row ID")
         VIEW = TABLE.view()
-        VIEW.on_update(write_update, mode="row")
-        UPDATE_TABLE = Table(TABLE.schema())
-        UPDATE_VIEW = UPDATE_TABLE.view()
+
+        CHANGELOG_TABLE = Table(TABLE.schema())
+        CHANGELOG_VIEW = CHANGELOG_TABLE.view()
+
+        VIEW.on_update(write_changelog, mode="row")
     
     MANAGER = PerspectiveManager()
     MANAGER.host_table("data_source", TABLE)
     MANAGER.host_view("data_view", VIEW)
-    MANAGER.host_view("update_view", UPDATE_VIEW)
+    MANAGER.host_table("changelog_table", CHANGELOG_TABLE)
+    MANAGER.host_view("changelog_view", CHANGELOG_VIEW)
 
     return tornado.web.Application([
         (r"/", MainHandler),

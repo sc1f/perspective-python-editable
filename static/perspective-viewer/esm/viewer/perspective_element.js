@@ -292,7 +292,14 @@ export class PerspectiveElement extends StateElement {
 
     if (this.hasAttribute("filters")) {
       this.filters = this.getAttribute("filters");
-    }
+    } // Get an edit port from the table, and set it on the viewer so that
+    // all grid edits use the specified port.
+
+
+    this._edit_port_id = await table.make_and_get_input_port(); // Resolve the edit port lock, which allows for `get_edit_port` to be
+    // called in arbitary order without ever returning a null value.
+
+    this._edit_port_id_lock.resolve(this._edit_port_id);
 
     try {
       await this._debounce_update({

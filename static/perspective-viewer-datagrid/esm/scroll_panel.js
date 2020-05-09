@@ -86,7 +86,7 @@ export let DatagridVirtualTableViewModel = (_class = class DatagridVirtualTableV
       mode: "open"
     });
     const slot = `<slot></slot>`;
-    this.shadowRoot.innerHTML = html` <style> ${CONTAINER_STYLE + MATERIAL_STYLE} </style> <div class="pd-scroll-container"> <div class="pd-virtual-panel">${this._virtual_scrolling_disabled && slot}</div> <div class="pd-scroll-table-clip">${this._virtual_scrolling_disabled || slot}</div> <div style="position: absolute; visibility: hidden;"></div> </div> `;
+    this.shadowRoot.innerHTML = html` <style> ${CONTAINER_STYLE + MATERIAL_STYLE} </style> <div class="pd-scroll-container"> <div class="pd-virtual-panel">${this._virtual_scrolling_disabled ? slot : ""}</div> <div class="pd-scroll-table-clip">${this._virtual_scrolling_disabled ? "" : slot}</div> <div style="position: absolute; visibility: hidden;"></div> </div> `;
     const stick_container = document.createElement("div");
     const [, scroll_container] = this.shadowRoot.children;
     const [virtual_panel, table_clip, table_staging] = scroll_container.children;
@@ -182,11 +182,11 @@ export let DatagridVirtualTableViewModel = (_class = class DatagridVirtualTableV
     const header_levels = this._view_cache.config.column_pivots.length + 1;
     const total_scroll_height = Math.max(1, this._virtual_panel.offsetHeight - this._scroll_container.offsetHeight);
     const percent_scroll = this._scroll_container.scrollTop / total_scroll_height;
-    const virtual_panel_row_height = Math.floor(height / row_height);
+    const virtual_panel_row_height = height / row_height;
     const relative_nrows = !reset_scroll_position ? this._nrows || 0 : nrows;
     const scroll_rows = Math.max(0, relative_nrows + (header_levels - virtual_panel_row_height));
-    let start_row = Math.round(scroll_rows * percent_scroll);
-    let end_row = start_row + virtual_panel_row_height;
+    let start_row = Math.ceil(scroll_rows * percent_scroll);
+    let end_row = start_row + virtual_panel_row_height + 1;
     return {
       start_row,
       end_row
@@ -310,6 +310,11 @@ export let DatagridVirtualTableViewModel = (_class = class DatagridVirtualTableV
 
 
   _swap_in(args) {
+    this._render_element.dispatchEvent(new CustomEvent("perspective-datagrid-before-update", {
+      bubbles: true,
+      detail: this
+    }));
+
     if (!this._virtual_scrolling_disabled) {
       if (this._needs_swap(args)) {
         if (this._sticky_container === this.table_model.table.parentElement) {
@@ -323,11 +328,6 @@ export let DatagridVirtualTableViewModel = (_class = class DatagridVirtualTableV
         }
       }
     }
-
-    this._render_element.dispatchEvent(new CustomEvent("perspective-datagrid-before-update", {
-      bubbles: true,
-      detail: this
-    }));
   }
   /**
    * Step 2 of a double-buffer render, swap the original table back into the
@@ -358,22 +358,26 @@ export let DatagridVirtualTableViewModel = (_class = class DatagridVirtualTableV
 
   _update_virtual_panel_width(invalid_schema) {
     if (invalid_schema) {
-      const total_scroll_width = Math.max(1, this._virtual_panel.offsetWidth - this._container_size.width);
-      const percent_left = this._scroll_container.scrollLeft / total_scroll_width;
+      if (this._virtual_scrolling_disabled) {
+        this._virtual_panel.style.width = this._column_sizes.indices.reduce((x, y) => x + y, 0) + "px";
+      } else {
+        const total_scroll_width = Math.max(1, this._virtual_panel.offsetWidth - this._container_size.width);
+        const percent_left = this._scroll_container.scrollLeft / total_scroll_width;
 
-      const max_scroll_column = this._max_scroll_column();
+        const max_scroll_column = this._max_scroll_column();
 
-      let cidx = 0,
-          virtual_width = 0;
+        let cidx = 0,
+            virtual_width = 0;
 
-      while (cidx < max_scroll_column) {
-        virtual_width += this._column_sizes.indices[cidx] || 60;
-        cidx++;
+        while (cidx < max_scroll_column) {
+          virtual_width += this._column_sizes.indices[cidx] || 60;
+          cidx++;
+        }
+
+        const panel_width = this._container_size.width + virtual_width;
+        this._virtual_panel.style.width = panel_width + "px";
+        this._scroll_container.scrollLeft = percent_left * virtual_width;
       }
-
-      const panel_width = this._container_size.width + virtual_width;
-      this._virtual_panel.style.width = panel_width + "px";
-      this._scroll_container.scrollLeft = percent_left * virtual_width;
     }
   }
   /**
@@ -388,7 +392,19 @@ export let DatagridVirtualTableViewModel = (_class = class DatagridVirtualTableV
     const {
       row_height = 19
     } = this._column_sizes;
-    const virtual_panel_px_size = Math.min(BROWSER_MAX_HEIGHT, nrows * row_height);
+    const header_height = this.table_model.header.cells.length * row_height;
+    let virtual_panel_px_size;
+
+    if (this._virtual_scrolling_disabled) {
+      virtual_panel_px_size = nrows * row_height + header_height;
+    } else {
+      const {
+        height
+      } = this._container_size;
+      const zoom_factor = this._scroll_container.offsetHeight / (height - header_height);
+      virtual_panel_px_size = Math.min(BROWSER_MAX_HEIGHT, nrows * row_height * zoom_factor);
+    }
+
     this._virtual_panel.style.height = `${virtual_panel_px_size}px`;
   }
   /**

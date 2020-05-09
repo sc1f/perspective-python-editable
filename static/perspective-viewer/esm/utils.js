@@ -213,16 +213,18 @@ export async function setPromise(cb = async () => {}, timeout = 0) {
   await new Promise(x => setTimeout(x, timeout));
   return await cb();
 }
+/**
+ * Returns a promise whose resolve method can be called from elsewhere.
+ */
 
-const invertPromise = () => {
+export function invertPromise() {
   let resolve;
   let promise = new Promise(_resolve => {
     resolve = _resolve;
   });
   promise.resolve = resolve;
   return promise;
-};
-
+}
 export function throttlePromise(target, property, descriptor) {
   const lock = Symbol("private lock");
   const f = descriptor.value;

@@ -30,13 +30,25 @@ export class WebSocketClient extends Client {
       }
 
       if (this._pending_arrow) {
-        this._handle({
+        let result = {
           data: {
             id: this._pending_arrow,
             data: msg.data
           }
-        });
+        }; // make sure on_update callbacks are called with a `port_id`
+        // AND the transferred arrow.
 
+        if (this._pending_port_id !== undefined) {
+          const new_data_with_port_id = {
+            port_id: this._pending_port_id,
+            delta: msg.data
+          };
+          result.data.data = new_data_with_port_id;
+        }
+
+        this._handle(result);
+
+        delete this._pending_port_id;
         delete this._pending_arrow;
       } else {
         msg = JSON.parse(msg.data); // If the `is_transferable` flag is set, the worker expects the
@@ -45,7 +57,14 @@ export class WebSocketClient extends Client {
         // the ArrayBuffer containing arrow data.
 
         if (msg.is_transferable) {
-          this._pending_arrow = msg.id;
+          this._pending_arrow = msg.id; // Check whether the message also contains a `port_id`,
+          // indicating that we are in an `on_update` callback and
+          // the pending arrow needs to be joined with the port_id
+          // for on_update handlers to work properly.
+
+          if (msg.data && msg.data.port_id !== undefined) {
+            this._pending_port_id = msg.data.port_id;
+          }
         } else {
           this._handle({
             data: msg
@@ -54,8 +73,31 @@ export class WebSocketClient extends Client {
       }
     };
   }
+  /**
+   * Send a message to the remote, checking whether the arguments contain an
+   * ArrayBuffer.
+   *
+   * @param {Object} msg a message to send to the remote. If the `args`
+   * param contains an ArrayBuffer, two messages will be sent - a pre-message
+   * with the `is_transferable` flag set to true, and a second message
+   * containing the ArrayBuffer. This allows for transport of metadata
+   * alongside an ArrayBuffer, and the pattern should be implemented by the
+   * receiver.
+   */
+
 
   send(msg) {
+    if (msg.args && msg.args.length > 0 && msg.args[0] instanceof ArrayBuffer && msg.args[0].byteLength !== undefined) {
+      const pre_msg = msg;
+      msg.is_transferable = true;
+
+      this._ws.send(JSON.stringify(pre_msg));
+
+      this._ws.send(msg.args[0]);
+
+      return;
+    }
+
     this._ws.send(JSON.stringify(msg));
   }
 
@@ -91,12 +133,14 @@ export class WebSocketManager extends Server {
     }, 30000);
   }
   /**
-   * Add a new websocket connection to the manager
+   * Add a new websocket connection to the manager, and define a handler
+   * for all incoming messages. If the incoming message has `is_transferable`
+   * set, handle incoming `ArrayBuffers` correctly.
    *
    * The WebsocketManager manages the websocket connection and processes every
    * message received from each connections. When a websocket connection is
    * `closed`, the websocket manager will clear all subscriptions associated
-   * with the connection
+   * with the connection.
    *
    * @param {WebSocket} ws a websocket connection
    */
@@ -104,6 +148,7 @@ export class WebSocketManager extends Server {
 
   add_connection(ws) {
     ws.isAlive = true;
+    ws.binaryType = "arraybuffer";
     ws.id = CLIENT_ID_GEN++; // Parse incoming messages
 
     ws.on("message", msg => {
@@ -114,7 +159,30 @@ export class WebSocketManager extends Server {
         return;
       }
 
-      msg = JSON.parse(msg);
+      if (this._is_transferable) {
+        // Combine ArrayBuffer and previous message so that metadata can
+        // be reconstituted.
+        const buffer = msg;
+        let new_args = [buffer];
+        msg = this._is_transferable_pre_message;
+
+        if (msg.args && msg.args.length > 1) {
+          new_args = new_args.concat(msg.args.slice(1));
+        }
+
+        msg.args = new_args;
+        delete msg.is_transferable;
+        this._is_transferable = false;
+        this._is_transferable_pre_message = undefined;
+      } else {
+        msg = JSON.parse(msg);
+
+        if (msg.is_transferable) {
+          this._is_transferable = true;
+          this._is_transferable_pre_message = msg;
+          return;
+        }
+      }
 
       try {
         // Send all messages to the handler defined in

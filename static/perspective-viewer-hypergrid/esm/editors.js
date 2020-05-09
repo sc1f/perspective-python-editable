@@ -88,11 +88,15 @@ function getEditorValueText(updated) {
     const index = old.__INDEX__;
     delete old["__INDEX__"];
     const colname = Object.keys(old)[0];
+    const port_id = this.grid.behavior.dataModel._viewer._edit_port_id || 0;
+    console.log(port_id, this.grid.behavior.dataModel);
 
     this._table.update([{
       __INDEX__: index,
       [colname]: updated
-    }]);
+    }], {
+      port_id: port_id
+    });
   });
 
   return this.localizer.format(updated);
@@ -103,11 +107,15 @@ function getEditorValueNumber(updated) {
     const index = old.__INDEX__;
     delete old["__INDEX__"];
     const colname = Object.keys(old)[0];
+    const port_id = this.grid.behavior.dataModel._viewer._edit_port_id || 0;
+    console.log(port_id, this.grid.behavior.dataModel);
 
     this._table.update([{
       __INDEX__: index,
       [colname]: Number(updated.replace(/,/g, ""))
-    }]);
+    }], {
+      port_id: port_id
+    });
   });
 
   return this.localizer.format(updated);
@@ -120,11 +128,15 @@ function getEditorValueDate(updated) {
     const index = old.__INDEX__;
     delete old["__INDEX__"];
     const colname = Object.keys(old)[0];
+    const port_id = this.grid.behavior.dataModel._viewer._edit_port_id || 0;
+    console.log(port_id, this.grid.behavior.dataModel);
 
     this._table.update([{
       __INDEX__: index,
       [colname]: updated
-    }]);
+    }], {
+      port_id: port_id
+    });
   });
 
   return this.localizer.format(updated);

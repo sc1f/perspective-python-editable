@@ -59,7 +59,9 @@ function table(worker, data, options) {
 
       this._worker.post(msg);
 
-      data.on_update(this.update, {
+      data.on_update(updated => {
+        this.update(updated.delta);
+      }, {
         mode: "row"
       });
     });
@@ -97,6 +99,8 @@ table.prototype.view = function (config) {
 // to the queue for processing.
 
 
+table.prototype.make_and_get_input_port = (0, _dispatch.async_queue)("make_and_get_input_port", "table_method");
+table.prototype.remove_input_port = (0, _dispatch.async_queue)("remove_input_port", "table_method");
 table.prototype.compute = (0, _dispatch.async_queue)("compute", "table_method");
 table.prototype.schema = (0, _dispatch.async_queue)("schema", "table_method");
 table.prototype.computed_schema = (0, _dispatch.async_queue)("computed_schema", "table_method");
@@ -112,13 +116,13 @@ table.prototype.on_delete = (0, _dispatch.subscribe)("on_delete", "table_method"
 table.prototype.remove = (0, _dispatch.async_queue)("remove", "table_method");
 table.prototype.remove_delete = (0, _dispatch.unsubscribe)("remove_delete", "table_method", true);
 
-table.prototype.update = function (data) {
+table.prototype.update = function (data, options) {
   return new Promise((resolve, reject) => {
     var msg = {
       name: this._name,
       cmd: "table_method",
       method: "update",
-      args: [data]
+      args: [data, options || {}]
     };
 
     this._worker.post(msg, resolve, reject, false);

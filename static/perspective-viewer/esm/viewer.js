@@ -17,7 +17,7 @@ function _applyDecoratedDescriptor(target, property, decorators, descriptor, con
  */
 import "@webcomponents/webcomponentsjs";
 import "./polyfill.js";
-import { bindTemplate, json_attribute, array_attribute, copy_to_clipboard, throttlePromise } from "./utils.js";
+import { bindTemplate, json_attribute, array_attribute, copy_to_clipboard, invertPromise, throttlePromise } from "./utils.js";
 import { renderers, register_debug_plugin } from "./viewer/renderers.js";
 import "./row.js";
 import "./computed_expression_editor.js";
@@ -76,6 +76,8 @@ PerspectiveViewer = (_dec = bindTemplate(template, view_style, default_style), _
     this._show_warnings = true;
     this.__render_times = [];
     this._resize_handler = this.notifyResize.bind(this);
+    this._edit_port_id = null;
+    this._edit_port_id_lock = invertPromise();
     window.addEventListener("resize", this._resize_handler);
   }
 
@@ -960,6 +962,17 @@ PerspectiveViewer = (_dec = bindTemplate(template, view_style, default_style), _
 
   async toggleConfig() {
     await this._toggle_config();
+  }
+  /**
+   * Returns a promise that resolves to the element's edit port ID, used
+   * internally when edits are made using Hypergrid or DataGrid.
+   *
+   * @async
+   */
+
+
+  async getEditPortId() {
+    return this._edit_port_id_lock;
   }
 
 }, (_applyDecoratedDescriptor(_class2.prototype, "sort", [array_attribute], Object.getOwnPropertyDescriptor(_class2.prototype, "sort"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "columns", [array_attribute], Object.getOwnPropertyDescriptor(_class2.prototype, "columns"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "computed-columns", [array_attribute], Object.getOwnPropertyDescriptor(_class2.prototype, "computed-columns"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "aggregates", [json_attribute], Object.getOwnPropertyDescriptor(_class2.prototype, "aggregates"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "filters", [array_attribute], Object.getOwnPropertyDescriptor(_class2.prototype, "filters"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "column-pivots", [array_attribute], Object.getOwnPropertyDescriptor(_class2.prototype, "column-pivots"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "row-pivots", [array_attribute], Object.getOwnPropertyDescriptor(_class2.prototype, "row-pivots"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "notifyResize", [throttlePromise], Object.getOwnPropertyDescriptor(_class2.prototype, "notifyResize"), _class2.prototype)), _class2)) || _class);
